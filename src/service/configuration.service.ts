@@ -1,6 +1,7 @@
 import { Inject, Injectable, InjectionToken, TemplateRef } from '@angular/core';
-import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-import { Observable } from 'rxjs/Observable';
+
+import { BehaviorSubject, Observable } from 'rxjs';
+
 import { NgxPermissionsConfigurationStore } from '../store/configuration.store';
 import {
     NgxPermissionsPredefinedStrategies,

@@ -1,20 +1,10 @@
 import { Inject, Injectable, InjectionToken } from '@angular/core';
-import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-import { Observable } from 'rxjs/Observable';
 import { NgxPermissionsStore } from '../store/permissions.store';
 import { NgxPermission } from '../model/permission.model';
-import 'rxjs/add/observable/of';
-import 'rxjs/add/observable/throw';
-import 'rxjs/add/operator/first';
-import 'rxjs/add/operator/catch';
-import 'rxjs/add/operator/toPromise';
-import 'rxjs/add/operator/mergeAll';
-import 'rxjs/add/observable/merge';
-import 'rxjs/add/observable/from';
-
-import { merge } from 'rxjs/observable/merge';
 
 import { isFunction, transformStringToArray } from '../utils/utils';
+import { BehaviorSubject, Observable, from, merge, of } from 'rxjs';
+import { catchError, first, map, mergeAll } from 'rxjs/operators';
 
 
 export type NgxPermissionsObject = {[name: string] : NgxPermission}
@@ -117,27 +107,27 @@ export class NgxPermissionsService {
         permissions.forEach((key) => {
             if (this.hasPermissionValidationFunction(key)) {
                 const immutableValue = { ...this.permissionsSource.value };
-                return promises.push(Observable.from(Promise.resolve((<Function>this.permissionsSource.value[ key ].validationFunction)(
+                return promises.push(from(Promise.resolve((<Function>this.permissionsSource.value[ key ].validationFunction)(
                     key,
                     immutableValue
-                ))).catch(() => {
-                    return Observable.of(false);
-                }));
+                ))).pipe(catchError(() => {
+                    return of(false);
+                })))
             } else {
                 //check for name of the permission if there is no validation function
-                promises.push(Observable.of(!!this.permissionsSource.value[ key ]));
+                promises.push(of(!!this.permissionsSource.value[ key ]));
             }
 
         });
-        return merge(promises)
-                         .mergeAll()
-                         .first((data: any) => {
-                             return data !== false;
-                         }, () => true, false)
-                         .toPromise()
-                         .then((data: any) => {
-                             return data;
-                         });
+        return merge(promises).pipe(mergeAll(),
+                                first((data: any) => {
+                                    return data !== false;
+                                }),
+                                 map (() => true, false))
+                             .toPromise()
+                             .then((data: any) => {
+                                 return data;
+                             });
     }
 
     private hasPermissionValidationFunction(key: string): boolean {

@@ -1,7 +1,6 @@
-import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-import { Observable} from 'rxjs/Observable';
 import { Injectable } from '@angular/core';
 import { Strategy, StrategyFunction } from '../service/configuration.service';
+import { BehaviorSubject, Observable } from 'rxjs';
 
 @Injectable()
 export class NgxPermissionsConfigurationStore {

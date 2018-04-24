@@ -9,13 +9,12 @@ import {
     ViewContainerRef
 } from "@angular/core";
 import { NgxPermissionsService } from "../service/permissions.service";
-import { Subscription } from "rxjs/Subscription";
 import { NgxRolesService } from '../service/roles.service';
-import 'rxjs/add/operator/merge';
-import 'rxjs/add/operator/skip';
 import { isBoolean, isFunction, isString, notEmptyValue } from '../utils/utils';
 import { NgxPermissionsConfigurationService, StrategyFunction } from '../service/configuration.service';
 import { NgxPermissionsPredefinedStrategies } from '../enums/predefined-strategies.enum';
+import { Subscription } from 'rxjs';
+import { merge, skip } from 'rxjs/operators';
 
 @Directive({
     selector: '[ngxPermissionsOnly],[ngxPermissionsExcept]'
@@ -50,13 +49,11 @@ export class NgxPermissionsDirective implements OnInit, OnDestroy {
     private firstMergeUnusedRun = 1;
     private currentAuthorizedState: boolean;
 
-    constructor(
-        private permissionsService: NgxPermissionsService,
-        private configurationService: NgxPermissionsConfigurationService,
-        private rolesService: NgxRolesService,
-        private viewContainer: ViewContainerRef,
-        private templateRef: TemplateRef<any>
-    ) {
+    constructor(private permissionsService: NgxPermissionsService,
+                private configurationService: NgxPermissionsConfigurationService,
+                private rolesService: NgxRolesService,
+                private viewContainer: ViewContainerRef,
+                private templateRef: TemplateRef<any>) {
     }
 
 
@@ -73,36 +70,37 @@ export class NgxPermissionsDirective implements OnInit, OnDestroy {
 
     private validateExceptOnlyPermissions(): Subscription {
         return this.permissionsService.permissions$
-                         .merge(this.rolesService.roles$)
-                         .skip(this.firstMergeUnusedRun)
-                         .subscribe(() => {
-                             if (notEmptyValue(this.ngxPermissionsExcept)) {
-                                 this.validateExceptAndOnlyPermissions();
-                                 return;
-                             }
+            .pipe(merge(this.rolesService.roles$),
+                skip(this.firstMergeUnusedRun))
 
-                             if (notEmptyValue(this.ngxPermissionsOnly)) {
-                                 this.validateOnlyPermissions();
-                                 return;
-                             }
+            .subscribe(() => {
+                if (notEmptyValue(this.ngxPermissionsExcept)) {
+                    this.validateExceptAndOnlyPermissions();
+                    return;
+                }
 
-                             this.handleAuthorisedPermission(this.getAuthorisedTemplates());
-                         });
+                if (notEmptyValue(this.ngxPermissionsOnly)) {
+                    this.validateOnlyPermissions();
+                    return;
+                }
+
+                this.handleAuthorisedPermission(this.getAuthorisedTemplates());
+            });
     }
 
     private validateExceptAndOnlyPermissions(): void {
-        Promise.all([ this.permissionsService.hasPermission(this.ngxPermissionsExcept), this.rolesService.hasOnlyRoles(this.ngxPermissionsExcept) ])
-               .then(([ hasPermission, hasRole ]) => {
-                   if (hasPermission || hasRole) {
-                       this.handleUnauthorisedPermission(this.ngxPermissionsExceptElse || this.ngxPermissionsElse);
-                   } else {
-                       if (!!this.ngxPermissionsOnly) {
-                           throw false;
-                       } else {
-                           this.handleAuthorisedPermission(this.ngxPermissionsExceptThen || this.ngxPermissionsThen || this.templateRef);
-                       }
-                   }
-               }).catch(() => {
+        Promise.all([this.permissionsService.hasPermission(this.ngxPermissionsExcept), this.rolesService.hasOnlyRoles(this.ngxPermissionsExcept)])
+            .then(([hasPermission, hasRole]) => {
+                if (hasPermission || hasRole) {
+                    this.handleUnauthorisedPermission(this.ngxPermissionsExceptElse || this.ngxPermissionsElse);
+                } else {
+                    if (!!this.ngxPermissionsOnly) {
+                        throw false;
+                    } else {
+                        this.handleAuthorisedPermission(this.ngxPermissionsExceptThen || this.ngxPermissionsThen || this.templateRef);
+                    }
+                }
+            }).catch(() => {
             if (!!this.ngxPermissionsOnly) {
                 this.validateOnlyPermissions();
             } else {
@@ -112,14 +110,14 @@ export class NgxPermissionsDirective implements OnInit, OnDestroy {
     }
 
     private validateOnlyPermissions(): void {
-        Promise.all([ this.permissionsService.hasPermission(this.ngxPermissionsOnly), this.rolesService.hasOnlyRoles(this.ngxPermissionsOnly) ])
-               .then(([ permissionPr, roles ]) => {
-                   if (permissionPr || roles) {
-                       this.handleAuthorisedPermission(this.ngxPermissionsOnlyThen || this.ngxPermissionsThen || this.templateRef);
-                   } else {
-                       this.handleUnauthorisedPermission(this.ngxPermissionsOnlyElse || this.ngxPermissionsElse);
-                   }
-               }).catch(() => {
+        Promise.all([this.permissionsService.hasPermission(this.ngxPermissionsOnly), this.rolesService.hasOnlyRoles(this.ngxPermissionsOnly)])
+            .then(([permissionPr, roles]) => {
+                if (permissionPr || roles) {
+                    this.handleAuthorisedPermission(this.ngxPermissionsOnlyThen || this.ngxPermissionsThen || this.templateRef);
+                } else {
+                    this.handleUnauthorisedPermission(this.ngxPermissionsOnlyElse || this.ngxPermissionsElse);
+                }
+            }).catch(() => {
             this.handleUnauthorisedPermission(this.ngxPermissionsOnlyElse || this.ngxPermissionsElse);
         });
     }
